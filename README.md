@@ -63,7 +63,7 @@ vulpine -ecrImageRegistry 424851304182 -ecrProfile infra -k8sctx preprod,prod -s
 To scan and display the entire findings on ECR, to benefit from fiding who's the owner of each finding, it can be done with:
 
 ```
-vulpine -ecrImageRegistry 424851304182 -ecrProfile infra -scanTarget eks
+vulpine -ecrImageRegistry 424851304182 -ecrProfile infra -scanTarget ecr
 ```
 
 ## Output
