@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
@@ -65,14 +64,12 @@ func main() {
 
 	if *scanTarget == "ecr" {
 		// scan ECR
-		fmt.Println("Generating Report for ECR")
 		results = inspector.ListInspectorFindings(inspectorClient, results, scanType, ecrImageRegistry)
 	} else if *scanTarget == "eks" {
 		// scan k8s pods
 		// loop all the RepoImages in ecrRepos and set ImageDeployed to true if image is found in running k8s pods
 		deployedImages := make(map[string]string)
 		eks.IsImageDeployed(ecrRepos, pods, deployedImages)
-		fmt.Println("Generating Report for running K8s pods")
 		for repoName, imageTag := range deployedImages {
 			results = inspector.ListInspectorFindingsByRepoImage(inspectorClient, results, repoName, imageTag)
 		}

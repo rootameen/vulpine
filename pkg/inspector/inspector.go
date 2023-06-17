@@ -56,7 +56,6 @@ func ListInspectorFindings(client *inspector2.Client, results []types.Finding, s
 	}
 
 	results = append(results, findings.Findings...)
-	fmt.Println(*scanType)
 
 	if *scanType == "full" {
 		fmt.Println("Scan Type is full, getting more findings")
