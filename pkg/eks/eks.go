@@ -2,13 +2,16 @@ package eks
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/rootameen/vulpine/pkg/ecr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 )
 
 type Pod struct {
@@ -51,6 +54,16 @@ func ConfigureKubeconfig(kubeconfig string) *kubernetes.Clientset {
 		panic(err.Error())
 	}
 	return clientset
+}
+
+func LoadKubeconfig() *string {
+	var kubeconfig *string
+	if home := homedir.HomeDir(); home != "" {
+		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	return kubeconfig
 }
 
 func GenerateClusterPodList(clientset *kubernetes.Clientset, runningPods []Pod) []Pod {

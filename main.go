@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -12,7 +11,6 @@ import (
 	"github.com/rootameen/vulpine/pkg/ecr"
 	"github.com/rootameen/vulpine/pkg/eks"
 	"github.com/rootameen/vulpine/pkg/inspector"
-	"k8s.io/client-go/util/homedir"
 )
 
 func main() {
@@ -41,23 +39,6 @@ func main() {
 	ecrRepos := ecr.GenerateEcrImageList(cfg)
 
 	// generate list of k8s pods
-	ctxs := strings.Split(*k8sctx, ",")
-
-	var kubeconfig *string
-	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-
-	var pods []eks.Pod
-
-	for _, ctx := range ctxs {
-		eks.SwitchContext(ctx, *kubeconfig)
-
-		clientset := eks.ConfigureKubeconfig(*kubeconfig)
-		pods = eks.GenerateClusterPodList(clientset, pods)
-	}
 
 	var results []types.Finding
 	inspectorClient := inspector.CreateInspectorClient(cfg)
@@ -66,6 +47,18 @@ func main() {
 		// scan ECR
 		results = inspector.ListInspectorFindings(inspectorClient, results, scanType, ecrImageRegistry)
 	} else if *scanTarget == "eks" {
+		ctxs := strings.Split(*k8sctx, ",")
+
+		kubeconfig := eks.LoadKubeconfig()
+
+		var pods []eks.Pod
+
+		for _, ctx := range ctxs {
+			eks.SwitchContext(ctx, *kubeconfig)
+
+			clientset := eks.ConfigureKubeconfig(*kubeconfig)
+			pods = eks.GenerateClusterPodList(clientset, pods)
+		}
 		// scan k8s pods
 		// loop all the RepoImages in ecrRepos and set ImageDeployed to true if image is found in running k8s pods
 		deployedImages := make(map[string]string)
