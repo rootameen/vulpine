@@ -42,9 +42,9 @@ Usage of ./vulpine:
 To scan a single or multiple kubernetes clusters against findings in inspector, you need to provide:
 
 * Kubernetes context, or multiple comma separated contexts
-* AWS profile containing your ECR repo, as defined in `~/.aws/config`
 * AWS account ID of the ECR Profile
 * Set Scan Target as EKS
+* AWS profile containing your ECR repo, as defined in `~/.aws/config`.
 
 #### Scan a single kubernetes cluster
 
@@ -93,7 +93,9 @@ The tool functions in two different ways
 
 When setting `-scanTarget` to `eks`, the tool will load the currently running pods from the provided comma delimeted list of kubernetes contexts provided with `-k8sctx`, and display the relevant security findings only for those running images from AWS Inspector.
 
-If `-scanTarget` is set to `ecr`, the tool will display the entire findings of ECR. The column `ONWERS` display info from tags that are user defined during the creation of the ECR repository itself. If your org specifies a tag "Team" or "Stakeholders" on ECR repos, you can set that tag via `-repoTag` parameter to see that info with the findings, which is useful when using this mode to have a general view about the everything hosted on your registry.
+If `-scanTarget` is set to `ecr`, the tool will display the entire findings of ECR. The column `ONWERS` display info from tags that are user defined during the creation of the ECR repository itself. If your org specifies a tag "Team" or "Stakeholders" on ECR repos, you can set that tag via `-repoTag` parameter to see that info with the findings, which is useful when using this mode to have a general view about the everything hosted on your registry. 
+
+Please note that `-ecrProfile` flag only required if both Scan Target is `eks` and that `ecr` is coming from a different account. In `ecr` scan mode, or if k8s and ECR are running from the same profile, the profile can be loaded automatically via short-term credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` environment variables)
 
 ## What's next
 
