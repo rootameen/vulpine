@@ -112,6 +112,13 @@ func ListInspectorFindingsByRepoImage(client *inspector2.Client, results []types
 
 	defaultFilterCriteria := &types.FilterCriteria{
 
+		// Severity: []types.StringFilter{
+		// 	{
+		// 		Value:      aws.String("CRITICAL"),
+		// 		Comparison: "EQUALS",
+		// 	},
+		// },
+
 		EcrImageRepositoryName: []types.StringFilter{
 			{
 				Value:      aws.String(repoName),
@@ -161,7 +168,7 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 		t.SetOutputMirror(f)
 	}
 
-	t.AppendHeader(table.Row{"#", "Title", "Severity", "Fix Available", "Remediation", "Package Manager", "ECR Repo", "Onwers"})
+	t.AppendHeader(table.Row{"#", "Title", "Severity", "Fix Available", "Remediation", "Package Manager", "ECR Repo", "Image Tag", "Onwers"})
 
 	for num, finding := range results {
 
@@ -174,7 +181,7 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 			}
 		}
 		t.AppendRows([]table.Row{
-			{num, *finding.Title, finding.Severity, finding.FixAvailable, *finding.PackageVulnerabilityDetails.VulnerablePackages[0].Remediation, finding.PackageVulnerabilityDetails.VulnerablePackages[0].PackageManager, *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName, repoOwners},
+			{num, *finding.Title, finding.Severity, finding.FixAvailable, *finding.PackageVulnerabilityDetails.VulnerablePackages[0].Remediation, finding.PackageVulnerabilityDetails.VulnerablePackages[0].PackageManager, *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName, finding.Resources[0].Details.AwsEcrContainerImage.ImageTags[0], repoOwners},
 		})
 	}
 
