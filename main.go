@@ -9,9 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/inspector2/types"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rootameen/vulpine/pkg/ecr"
 	"github.com/rootameen/vulpine/pkg/eks"
 	"github.com/rootameen/vulpine/pkg/inspector"
+	"github.com/rootameen/vulpine/pkg/server"
 )
 
 func main() {
@@ -26,6 +28,7 @@ func main() {
 	scanType := flag.String("scanType", "short", "scanType type: short (100 findings), full")
 	ecrImageRegistry := flag.String("ecrImageRegistry", "", "ECR Image Registry to scan, e.g. 424851304182")
 	ecrProfile := flag.String("ecrProfile", "", "AWS Profile to use which contains ECR Repos")
+	listenAddr := flag.String("listenAddr", ":8080", "Listen address for prometheus metrics")
 
 	flag.Parse()
 
@@ -78,6 +81,14 @@ func main() {
 		}
 	}
 
-	inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg)
+	// instantiate prometheus registry
+	reg := prometheus.NewRegistry()
+
+	// generate output and expose prometheus metrics
+	inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, reg)
+	err = server.ExposeMetrics(reg, *listenAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 }

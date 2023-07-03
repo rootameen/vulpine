@@ -9,7 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/inspector2"
 	"github.com/aws/aws-sdk-go-v2/service/inspector2/types"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rootameen/vulpine/pkg/ecr"
+	"github.com/rootameen/vulpine/pkg/metrics"
 )
 
 type VulpineFinding struct {
@@ -21,6 +23,16 @@ type VulpineFinding struct {
 	RepositoryName string
 	ImageTag       string
 }
+
+type VulpineFindingsCounts struct {
+	CriticalCount      float64
+	HighCount          float64
+	MediumCount        float64
+	LowCount           float64
+	InformationalCount float64
+}
+
+var vfc VulpineFindingsCounts
 
 func CreateInspectorClient(cfg aws.Config) *inspector2.Client {
 
@@ -164,7 +176,7 @@ func ListInspectorFindingsByRepoImage(client *inspector2.Client, results []types
 	return results
 }
 
-func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, output *string, format *string, repoTag *string, cfg aws.Config) {
+func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, output *string, format *string, repoTag *string, cfg aws.Config, reg *prometheus.Registry) {
 	t := table.NewWriter()
 
 	if *output == "stdout" {
@@ -180,7 +192,13 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 
 	t.AppendHeader(table.Row{"#", "Title", "Severity", "Fix Available", "Remediation", "Package Manager", "ECR Repo", "Image Tag", "Onwers"})
 
+	// instantiate prometheus metrics for this output run
+	promMetrics := metrics.NewMetrics(reg)
+
+	// loop through findings and render output and prometheus metrics
 	for num, finding := range results {
+
+		fmt.Printf("Counters: %v\n", vfc)
 
 		vFinding := VulpineFinding{
 			Title:          *finding.Title,
@@ -203,6 +221,26 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 		t.AppendRows([]table.Row{
 			{num, vFinding.Title, vFinding.Severity, vFinding.FixAvailable, vFinding.Remediation, vFinding.PackageManager, vFinding.RepositoryName, vFinding.ImageTag, repoOwners},
 		})
+
+		// calculate the total number of findings for each severity by cases and increment prometheus metrics
+		switch vFinding.Severity {
+		case "CRITICAL":
+			vfc.CriticalCount++
+			promMetrics.CriticalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "HIGH":
+			vfc.HighCount++
+			promMetrics.HighSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "MEDIUM":
+			vfc.MediumCount++
+			promMetrics.MediumSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "LOW":
+			vfc.LowCount++
+			promMetrics.LowSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "INFORMATIONAL":
+			vfc.InformationalCount++
+			promMetrics.InformationalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		}
+
 	}
 
 	if *format == "csv" {
