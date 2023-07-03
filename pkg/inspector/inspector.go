@@ -12,6 +12,16 @@ import (
 	"github.com/rootameen/vulpine/pkg/ecr"
 )
 
+type VulpineFinding struct {
+	Title          string
+	Severity       types.Severity
+	FixAvailable   types.FixAvailable
+	Remediation    string
+	PackageManager types.PackageManager
+	RepositoryName string
+	ImageTag       string
+}
+
 func CreateInspectorClient(cfg aws.Config) *inspector2.Client {
 
 	client := inspector2.NewFromConfig(cfg)
@@ -172,16 +182,26 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 
 	for num, finding := range results {
 
+		vFinding := VulpineFinding{
+			Title:          *finding.Title,
+			Severity:       finding.Severity,
+			FixAvailable:   finding.FixAvailable,
+			Remediation:    *finding.PackageVulnerabilityDetails.VulnerablePackages[0].Remediation,
+			PackageManager: finding.PackageVulnerabilityDetails.VulnerablePackages[0].PackageManager,
+			RepositoryName: *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName,
+			ImageTag:       finding.Resources[0].Details.AwsEcrContainerImage.ImageTags[0],
+		}
+
 		var repoOwners string
 
 		for _, repo := range ecrRepos {
 
-			if *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName == repo.RepositoryName {
+			if vFinding.RepositoryName == repo.RepositoryName {
 				repoOwners = repo.RepoTags[*repoTag]
 			}
 		}
 		t.AppendRows([]table.Row{
-			{num, *finding.Title, finding.Severity, finding.FixAvailable, *finding.PackageVulnerabilityDetails.VulnerablePackages[0].Remediation, finding.PackageVulnerabilityDetails.VulnerablePackages[0].PackageManager, *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName, finding.Resources[0].Details.AwsEcrContainerImage.ImageTags[0], repoOwners},
+			{num, vFinding.Title, vFinding.Severity, vFinding.FixAvailable, vFinding.Remediation, vFinding.PackageManager, vFinding.RepositoryName, vFinding.ImageTag, repoOwners},
 		})
 	}
 
