@@ -30,6 +30,7 @@ func main() {
 	ecrImageRegistry := flag.String("ecrImageRegistry", "", "ECR Image Registry to scan, e.g. 424851304182")
 	ecrProfile := flag.String("ecrProfile", "", "AWS Profile to use which contains ECR Repos")
 	listenAddr := flag.String("listenAddr", ":8080", "Listen address for prometheus metrics")
+	mode := flag.String("mode", "cli", "mode: cli (to run a scan once), server (to run a scan every hour and expose metrics)")
 
 	flag.Parse()
 
@@ -58,16 +59,22 @@ func main() {
 	reg := prometheus.NewRegistry()
 	promMetrics := metrics.NewMetrics(reg)
 
-	// run a scan every hour
-	go func() {
-		for {
-			var results []types.Finding
-			results = scan.ScanFindings(scanTarget, results, inspectorClient, scanType, ecrImageRegistry, k8sctx, ecrRepos)
-			inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, promMetrics)
-			time.Sleep(3600 * time.Second)
-		}
-	}()
-
-	server.ExposeMetrics(reg, *listenAddr)
+	switch *mode {
+	case "cli":
+		var results []types.Finding
+		results = scan.ScanFindings(scanTarget, results, inspectorClient, scanType, ecrImageRegistry, k8sctx, ecrRepos)
+		inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, promMetrics)
+	case "server":
+		// run a scan every hour
+		go func() {
+			for {
+				var results []types.Finding
+				results = scan.ScanFindings(scanTarget, results, inspectorClient, scanType, ecrImageRegistry, k8sctx, ecrRepos)
+				inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, promMetrics)
+				time.Sleep(3600 * time.Second)
+			}
+		}()
+		server.ExposeMetrics(reg, *listenAddr)
+	}
 
 }

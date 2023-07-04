@@ -1,9 +1,7 @@
 package scan
 
 import (
-	"fmt"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/inspector2"
 	"github.com/aws/aws-sdk-go-v2/service/inspector2/types"
@@ -13,8 +11,6 @@ import (
 )
 
 func ScanFindings(scanTarget *string, results []types.Finding, inspectorClient *inspector2.Client, scanType *string, ecrImageRegistry *string, k8sctx *string, ecrRepos []ecr.ECRRepo) []types.Finding {
-
-	fmt.Println("Scanning for findings...", time.Now())
 
 	if *scanTarget == "ecr" {
 
