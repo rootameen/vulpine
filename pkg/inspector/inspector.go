@@ -32,8 +32,6 @@ type VulpineFindingsCounts struct {
 	InformationalCount float64
 }
 
-var vfc VulpineFindingsCounts
-
 func CreateInspectorClient(cfg aws.Config) *inspector2.Client {
 
 	client := inspector2.NewFromConfig(cfg)
@@ -176,7 +174,7 @@ func ListInspectorFindingsByRepoImage(client *inspector2.Client, results []types
 	return results
 }
 
-func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, output *string, format *string, repoTag *string, cfg aws.Config, reg *prometheus.Registry) {
+func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, output *string, format *string, repoTag *string, cfg aws.Config, m *metrics.Metrics) {
 	t := table.NewWriter()
 
 	if *output == "stdout" {
@@ -192,13 +190,16 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 
 	t.AppendHeader(table.Row{"#", "Title", "Severity", "Fix Available", "Remediation", "Package Manager", "ECR Repo", "Image Tag", "Onwers"})
 
-	// instantiate prometheus metrics for this output run
-	promMetrics := metrics.NewMetrics(reg)
-
 	// loop through findings and render output and prometheus metrics
-	for num, finding := range results {
 
-		fmt.Printf("Counters: %v\n", vfc)
+	// reset prometheus metrics for the next run
+	m.CriticalSeverity.Reset()
+	m.HighSeverity.Reset()
+	m.MediumSeverity.Reset()
+	m.LowSeverity.Reset()
+	m.InformationalSeverity.Reset()
+
+	for num, finding := range results {
 
 		vFinding := VulpineFinding{
 			Title:          *finding.Title,
@@ -225,20 +226,15 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 		// calculate the total number of findings for each severity by cases and increment prometheus metrics
 		switch vFinding.Severity {
 		case "CRITICAL":
-			vfc.CriticalCount++
-			promMetrics.CriticalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+			m.CriticalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
 		case "HIGH":
-			vfc.HighCount++
-			promMetrics.HighSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+			m.HighSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
 		case "MEDIUM":
-			vfc.MediumCount++
-			promMetrics.MediumSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+			m.MediumSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
 		case "LOW":
-			vfc.LowCount++
-			promMetrics.LowSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+			m.LowSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
 		case "INFORMATIONAL":
-			vfc.InformationalCount++
-			promMetrics.InformationalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+			m.InformationalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
 		}
 
 	}

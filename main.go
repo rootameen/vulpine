@@ -4,15 +4,16 @@ import (
 	"context"
 	"flag"
 	"log"
-	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/inspector2/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rootameen/vulpine/pkg/ecr"
-	"github.com/rootameen/vulpine/pkg/eks"
 	"github.com/rootameen/vulpine/pkg/inspector"
+	"github.com/rootameen/vulpine/pkg/metrics"
+	"github.com/rootameen/vulpine/pkg/scan"
 	"github.com/rootameen/vulpine/pkg/server"
 )
 
@@ -51,44 +52,22 @@ func main() {
 	// generate list of ECR Repos and images
 	ecrRepos := ecr.GenerateEcrImageList(cfg)
 
-	// generate list of k8s pods
-
-	var results []types.Finding
 	inspectorClient := inspector.CreateInspectorClient(cfg)
 
-	if *scanTarget == "ecr" {
-		// scan ECR
-		results = inspector.ListInspectorFindings(inspectorClient, results, scanType, ecrImageRegistry)
-	} else if *scanTarget == "eks" {
-		ctxs := strings.Split(*k8sctx, ",")
-
-		kubeconfig := eks.LoadKubeconfig()
-
-		var pods []eks.Pod
-
-		for _, ctx := range ctxs {
-			eks.SwitchContext(ctx, *kubeconfig)
-
-			clientset := eks.ConfigureKubeconfig(*kubeconfig)
-			pods = eks.GenerateClusterPodList(clientset, pods)
-		}
-		// scan k8s pods
-		// loop all the RepoImages in ecrRepos and set ImageDeployed to true if image is found in running k8s pods
-		deployedImages := make(map[string]string)
-		eks.IsImageDeployed(ecrRepos, pods, deployedImages)
-		for repoName, imageTag := range deployedImages {
-			results = inspector.ListInspectorFindingsByRepoImage(inspectorClient, results, repoName, imageTag)
-		}
-	}
-
-	// instantiate prometheus registry
+	// instantiate prometheus registry and metrics struct
 	reg := prometheus.NewRegistry()
+	promMetrics := metrics.NewMetrics(reg)
 
-	// generate output and expose prometheus metrics
-	inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, reg)
-	err = server.ExposeMetrics(reg, *listenAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// run a scan every hour
+	go func() {
+		for {
+			var results []types.Finding
+			results = scan.ScanFindings(scanTarget, results, inspectorClient, scanType, ecrImageRegistry, k8sctx, ecrRepos)
+			inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, promMetrics)
+			time.Sleep(3600 * time.Second)
+		}
+	}()
+
+	server.ExposeMetrics(reg, *listenAddr)
 
 }

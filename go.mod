@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.18.27
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.18.13
 	github.com/aws/aws-sdk-go-v2/service/inspector2 v1.14.2
+	github.com/go-co-op/gocron v1.30.1
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/prometheus/client_golang v1.16.0
 	k8s.io/apimachinery v0.27.3
@@ -52,7 +53,9 @@ require (
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect

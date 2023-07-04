@@ -2,7 +2,6 @@ package eks
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -56,12 +55,10 @@ func ConfigureKubeconfig(kubeconfig string) *kubernetes.Clientset {
 	return clientset
 }
 
-func LoadKubeconfig() *string {
-	var kubeconfig *string
+func LoadKubeconfig() string {
+	var kubeconfig string
 	if home := homedir.HomeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+		kubeconfig = filepath.Join(home, ".kube", "config")
 	}
 	return kubeconfig
 }
