@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/rootameen/vulpine/pkg/ecr"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -63,18 +64,38 @@ func LoadKubeconfig() string {
 	return kubeconfig
 }
 
-func GenerateClusterPodList(clientset *kubernetes.Clientset, runningPods []Pod) []Pod {
+func GenerateClusterPodList(k8sctx *string) []Pod {
+	var (
+		clientSet *kubernetes.Clientset
+		// k8sPods is the raw data of pods returned from the k8s API
+		k8sPods *v1.PodList
+		// Pods is the struct of pods that will be used to compare with ECR images
+		pods []Pod
+	)
 
-	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	if *k8sctx == "" {
+		// in-cluster scanning
+		return []Pod{}
+	} else {
+		// out-of-cluster scanning, loop through contexts
+		ctxs := strings.Split(*k8sctx, ",")
+		kubeconfig := LoadKubeconfig()
+
+		for _, ctx := range ctxs {
+			SwitchContext(ctx, kubeconfig)
+			clientSet = ConfigureKubeconfig(kubeconfig)
+		}
+	}
+
+	k8sPods, err := clientSet.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		panic(err.Error())
 	}
-
 	// define vars outside of loop
 
 	var podName, podNamespace, podImage, podImageID, podImageTag, podRepo string
 
-	for _, pod := range pods.Items {
+	for _, pod := range k8sPods.Items {
 		if len(pod.Status.ContainerStatuses) > 0 {
 			podName = pod.Name
 			podNamespace = pod.Namespace
@@ -84,12 +105,12 @@ func GenerateClusterPodList(clientset *kubernetes.Clientset, runningPods []Pod) 
 			}
 			podImageTag = strings.Split(pod.Status.ContainerStatuses[0].Image, ":")[1]
 			podRepo = strings.SplitN(strings.Split(pod.Status.ContainerStatuses[0].Image, ":")[0], "/", 2)[1]
-			runningPods = append(runningPods, Pod{podName, podNamespace, podImage, podImageID, podImageTag, podRepo})
+			pods = append(pods, Pod{podName, podNamespace, podImage, podImageID, podImageTag, podRepo})
 
 		}
 	}
 
-	return runningPods
+	return pods
 }
 
 func IsImageDeployed(ecrRepos []ecr.ECRRepo, pods []Pod, deployedImages map[string]string) {
