@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -21,16 +22,17 @@ func main() {
 
 	// flags
 
-	output := flag.String("output", "stdout", "output: stdout, filename")
-	format := flag.String("format", "table", "output format: table, csv")
-	repoTag := flag.String("repoTag", "Team", "Repo tag to associate with findings")
-	k8sctx := flag.String("k8sctx", "preprod", "comma delimited k8s contexts to scan")
-	scanTarget := flag.String("scanTarget", "ecr", "scanTarget: eks (to show findings for pods in eks), ecr (to show findings for all images in ECR)")
-	scanType := flag.String("scanType", "short", "scanType type: short (100 findings), full")
+	mode := flag.String("mode", "cli", "mode: cli (to run a scan once), server (to run a scan every hour and expose metrics)")
+	interval := flag.Int("interval", 60, "interval in seconds to run scan when in server mode")
 	ecrImageRegistry := flag.String("ecrImageRegistry", "", "ECR Image Registry to scan, e.g. 424851304182")
 	ecrProfile := flag.String("ecrProfile", "", "AWS Profile to use which contains ECR Repos")
 	listenAddr := flag.String("listenAddr", ":8080", "Listen address for prometheus metrics")
-	mode := flag.String("mode", "cli", "mode: cli (to run a scan once), server (to run a scan every hour and expose metrics)")
+	scanTarget := flag.String("scanTarget", "ecr", "scanTarget: eks (to show findings for pods in eks), ecr (to show findings for all images in ECR)")
+	k8sctx := flag.String("k8sctx", "preprod", "comma delimited k8s contexts to scan")
+	repoTag := flag.String("repoTag", "Team", "Repo tag to associate with findings")
+	output := flag.String("output", "stdout", "output: stdout, filename")
+	format := flag.String("format", "table", "output format: table, csv")
+	scanType := flag.String("scanType", "short", "scanType type: short (100 findings), full")
 
 	flag.Parse()
 
@@ -68,10 +70,11 @@ func main() {
 		// run a scan every hour
 		go func() {
 			for {
+				fmt.Println("Running scan...", time.Now())
 				var results []types.Finding
 				results = scan.ScanFindings(scanTarget, results, inspectorClient, scanType, ecrImageRegistry, k8sctx, ecrRepos)
 				inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, promMetrics)
-				time.Sleep(3600 * time.Second)
+				time.Sleep(time.Duration(*interval) * time.Second)
 			}
 		}()
 		server.ExposeMetrics(reg, *listenAddr)
