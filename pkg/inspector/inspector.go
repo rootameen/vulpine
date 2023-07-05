@@ -9,8 +9,28 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/inspector2"
 	"github.com/aws/aws-sdk-go-v2/service/inspector2/types"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rootameen/vulpine/pkg/ecr"
+	"github.com/rootameen/vulpine/pkg/metrics"
 )
+
+type VulpineFinding struct {
+	Title          string
+	Severity       types.Severity
+	FixAvailable   types.FixAvailable
+	Remediation    string
+	PackageManager types.PackageManager
+	RepositoryName string
+	ImageTag       string
+}
+
+type VulpineFindingsCounts struct {
+	CriticalCount      float64
+	HighCount          float64
+	MediumCount        float64
+	LowCount           float64
+	InformationalCount float64
+}
 
 func CreateInspectorClient(cfg aws.Config) *inspector2.Client {
 
@@ -154,7 +174,7 @@ func ListInspectorFindingsByRepoImage(client *inspector2.Client, results []types
 	return results
 }
 
-func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, output *string, format *string, repoTag *string, cfg aws.Config) {
+func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, output *string, format *string, repoTag *string, cfg aws.Config, m *metrics.Metrics) {
 	t := table.NewWriter()
 
 	if *output == "stdout" {
@@ -170,19 +190,53 @@ func RenderInspectorOutput(ecrRepos []ecr.ECRRepo, results []types.Finding, outp
 
 	t.AppendHeader(table.Row{"#", "Title", "Severity", "Fix Available", "Remediation", "Package Manager", "ECR Repo", "Image Tag", "Onwers"})
 
+	// loop through findings and render output and prometheus metrics
+
+	// reset prometheus metrics for the next run
+	m.CriticalSeverity.Reset()
+	m.HighSeverity.Reset()
+	m.MediumSeverity.Reset()
+	m.LowSeverity.Reset()
+	m.InformationalSeverity.Reset()
+
 	for num, finding := range results {
+
+		vFinding := VulpineFinding{
+			Title:          *finding.Title,
+			Severity:       finding.Severity,
+			FixAvailable:   finding.FixAvailable,
+			Remediation:    *finding.PackageVulnerabilityDetails.VulnerablePackages[0].Remediation,
+			PackageManager: finding.PackageVulnerabilityDetails.VulnerablePackages[0].PackageManager,
+			RepositoryName: *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName,
+			ImageTag:       finding.Resources[0].Details.AwsEcrContainerImage.ImageTags[0],
+		}
 
 		var repoOwners string
 
 		for _, repo := range ecrRepos {
 
-			if *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName == repo.RepositoryName {
+			if vFinding.RepositoryName == repo.RepositoryName {
 				repoOwners = repo.RepoTags[*repoTag]
 			}
 		}
 		t.AppendRows([]table.Row{
-			{num, *finding.Title, finding.Severity, finding.FixAvailable, *finding.PackageVulnerabilityDetails.VulnerablePackages[0].Remediation, finding.PackageVulnerabilityDetails.VulnerablePackages[0].PackageManager, *finding.Resources[0].Details.AwsEcrContainerImage.RepositoryName, finding.Resources[0].Details.AwsEcrContainerImage.ImageTags[0], repoOwners},
+			{num, vFinding.Title, vFinding.Severity, vFinding.FixAvailable, vFinding.Remediation, vFinding.PackageManager, vFinding.RepositoryName, vFinding.ImageTag, repoOwners},
 		})
+
+		// calculate the total number of findings for each severity by cases and increment prometheus metrics
+		switch vFinding.Severity {
+		case "CRITICAL":
+			m.CriticalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "HIGH":
+			m.HighSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "MEDIUM":
+			m.MediumSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "LOW":
+			m.LowSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		case "INFORMATIONAL":
+			m.InformationalSeverity.With(prometheus.Labels{"team": repoOwners, "repo": vFinding.RepositoryName, "tag": vFinding.ImageTag, "packagemanager": string(vFinding.PackageManager)}).Inc()
+		}
+
 	}
 
 	if *format == "csv" {

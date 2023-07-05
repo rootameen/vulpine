@@ -20,11 +20,17 @@ Usage of ./vulpine:
   -ecrImageRegistry string
         ECR Image Registry to scan, e.g. 424851304182
   -ecrProfile string
-        AWS Profile to use which contains ECR Repos (default "infra")
+        AWS Profile to use which contains ECR Repos
   -format string
         output format: table, csv (default "table")
+  -interval int
+        interval in seconds to run scan when in server mode (default 60)
   -k8sctx string
         comma delimited k8s contexts to scan (default "preprod")
+  -listenAddr string
+        Listen address for prometheus metrics (default ":8080")
+  -mode string
+        mode: cli (to run a scan once), server (to run a scan every hour and expose metrics) (default "cli")
   -output string
         output: stdout, filename (default "stdout")
   -repoTag string
@@ -32,7 +38,7 @@ Usage of ./vulpine:
   -scanTarget string
         scanTarget: eks (to show findings for pods in eks), ecr (to show findings for all images in ECR) (default "ecr")
   -scanType string
-        scanType type: short (100 findings), full (default "short")        
+        scanType type: short (100 findings), full (default "short")       
 ```
 
 ## Examples
@@ -97,6 +103,30 @@ If `-scanTarget` is set to `ecr`, the tool will display the entire findings of E
 
 Please note that `-ecrProfile` flag only required if both Scan Target is `eks` and that `ecr` is coming from a different account. In `ecr` scan mode, or if k8s and ECR are running from the same profile, the profile can be loaded automatically via short-term credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` environment variables)
 
-## What's next
+## Metrics
 
-Plenty of ideas could be added to add functionality, improve output, speed, and much more. Contributions are more than welcome :]
+When running in `server` mode, Vulpine exposes prometheus format metrics about vulnerabilities and counts
+```
+$ curl http://localhost:8080/metrics
+# HELP promhttp_metric_handler_errors_total Total number of internal errors encountered by the promhttp metric handler.
+# TYPE promhttp_metric_handler_errors_total counter
+promhttp_metric_handler_errors_total{cause="encoding"} 0
+promhttp_metric_handler_errors_total{cause="gathering"} 0
+# HELP vulpine_critical_vulns_total Number of Critical Vulnerabilities
+# TYPE vulpine_critical_vulns_total counter
+vulpine_critical_vulns_total{packagemanager="JAR",repo="service/core-service",tag="3.0.3",team="core-svc-team"} 1
+vulpine_critical_vulns_total{packagemanager="JAR",repo="service/billing-checks",tag="3.0.9",team="core-svc-team"} 1
+# HELP vulpine_high_vulns_total Number of High Vulnerabilities
+# TYPE vulpine_high_vulns_total counter
+vulpine_high_vulns_total{packagemanager="GOBINARY",repo="network-ninjas-repository/config-client",tag="v1.10.2",team="Network Ninjas"} 1
+vulpine_high_vulns_total{packagemanager="OS",repo="data/data-injector",tag="1.4.0",team="Data 1"} 2
+# HELP vulpine_informational_vulns_total Number of Informational Vulnerabilities
+# TYPE vulpine_informational_vulns_total counter
+vulpine_informational_vulns_total{packagemanager="OS",repo="nn/packet-inspector",tag="6.6.3",team="Network Ninjas"} 5
+# HELP vulpine_low_vulns_total Number of Low Vulnerabilities
+# TYPE vulpine_low_vulns_total counter
+vulpine_low_vulns_total{packagemanager="JAR",repo="data/svc1",tag="1.15.0",team="Data 1"} 1
+# HELP vulpine_medium_vulns_total Number of Medium Vulnerabilities
+# TYPE vulpine_medium_vulns_total counter
+vulpine_medium_vulns_total{packagemanager="JAR",repo="service/core-service",tag="3.0.3",team="core-svc-team"} 1
+```
