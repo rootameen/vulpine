@@ -38,7 +38,7 @@ func CreateInspectorClient(cfg aws.Config) *inspector2.Client {
 	return client
 }
 
-func ListInspectorFindings(client *inspector2.Client, results []types.Finding, scanType *string, ecrImageRegistry *string) []types.Finding {
+func ListInspectorFindingsEcr(client *inspector2.Client, results []types.Finding, scanType *string, ecrImageRegistry *string) []types.Finding {
 
 	defaultFilterCriteria := &types.FilterCriteria{
 		// Severity
@@ -80,7 +80,7 @@ func ListInspectorFindings(client *inspector2.Client, results []types.Finding, s
 	if *scanType == "full" {
 		fmt.Println("Scan Type is full, getting more findings")
 		for findings.NextToken != nil {
-			fmt.Println("NextToken is not nil, getting more findings")
+			fmt.Println("Loading Paginated Findings ...")
 			findings, err = client.ListFindings(context.TODO(), &inspector2.ListFindingsInput{
 				NextToken:      findings.NextToken,
 				FilterCriteria: defaultFilterCriteria,
@@ -170,6 +170,19 @@ func ListInspectorFindingsByRepoImage(client *inspector2.Client, results []types
 	}
 
 	results = append(results, findings.Findings...)
+
+	for findings.NextToken != nil {
+		fmt.Println("Loading Paginated Findings ...")
+		findings, err = client.ListFindings(context.TODO(), &inspector2.ListFindingsInput{
+			NextToken:      findings.NextToken,
+			FilterCriteria: defaultFilterCriteria,
+		})
+		if err != nil {
+			panic("Error in Listing findings from Next Token, " + err.Error())
+		}
+		results = append(results, findings.Findings...)
+		fmt.Println(len(results))
+	}
 
 	return results
 }

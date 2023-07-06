@@ -28,7 +28,7 @@ func main() {
 	ecrProfile := flag.String("ecrProfile", "", "AWS Profile to use which contains ECR Repos")
 	listenAddr := flag.String("listenAddr", ":8080", "Listen address for prometheus metrics")
 	scanTarget := flag.String("scanTarget", "ecr", "scanTarget: eks (to show findings for pods in eks), ecr (to show findings for all images in ECR)")
-	k8sctx := flag.String("k8sctx", "preprod", "comma delimited k8s contexts to scan")
+	k8sctx := flag.String("k8sctx", "", "comma delimited k8s contexts to scan, if not specified, in-cluster scanning will be performed")
 	repoTag := flag.String("repoTag", "Team", "Repo tag to associate with findings")
 	output := flag.String("output", "stdout", "output: stdout, filename")
 	format := flag.String("format", "table", "output format: table, csv")
@@ -54,7 +54,6 @@ func main() {
 	}
 	// generate list of ECR Repos and images
 	ecrRepos := ecr.GenerateEcrImageList(cfg)
-
 	inspectorClient := inspector.CreateInspectorClient(cfg)
 
 	// instantiate prometheus registry and metrics struct
@@ -70,8 +69,8 @@ func main() {
 		// run a scan every hour
 		go func() {
 			for {
-				fmt.Println("Running scan...", time.Now())
 				var results []types.Finding
+				fmt.Println("Running scan...", time.Now())
 				results = scan.ScanFindings(scanTarget, results, inspectorClient, scanType, ecrImageRegistry, k8sctx, ecrRepos)
 				inspector.RenderInspectorOutput(ecrRepos, results, output, format, repoTag, cfg, promMetrics)
 				time.Sleep(time.Duration(*interval) * time.Second)
