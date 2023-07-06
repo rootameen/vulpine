@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
@@ -64,18 +65,29 @@ func LoadKubeconfig() string {
 	return kubeconfig
 }
 
-func GenerateClusterPodList(k8sctx *string) []Pod {
+func GenerateClusterImageList(k8sctx *string) []Pod {
 	var (
 		clientSet *kubernetes.Clientset
-		// k8sPods is the raw data of pods returned from the k8s API
-		k8sPods *v1.PodList
 		// Pods is the struct of pods that will be used to compare with ECR images
 		pods []Pod
 	)
 
 	if *k8sctx == "" {
 		// in-cluster scanning
-		return []Pod{}
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			panic(err.Error())
+		}
+		// create the clientset
+		clientSet, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		pods = GetPods(clientSet, pods)
+
+		return pods
+
 	} else {
 		// out-of-cluster scanning, loop through contexts
 		ctxs := strings.Split(*k8sctx, ",")
@@ -87,11 +99,19 @@ func GenerateClusterPodList(k8sctx *string) []Pod {
 		}
 	}
 
+	pods = GetPods(clientSet, pods)
+
+	return pods
+}
+
+func GetPods(clientSet *kubernetes.Clientset, pods []Pod) []Pod {
+	// k8sPods is the raw data of pods returned from the k8s API
+	var k8sPods *v1.PodList
+
 	k8sPods, err := clientSet.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		panic(err.Error())
 	}
-	// define vars outside of loop
 
 	var podName, podNamespace, podImage, podImageID, podImageTag, podRepo string
 
@@ -100,8 +120,13 @@ func GenerateClusterPodList(k8sctx *string) []Pod {
 			podName = pod.Name
 			podNamespace = pod.Namespace
 			if pod.Status.ContainerStatuses[0].ImageID != "" {
-				podImageID = strings.Split(pod.Status.ContainerStatuses[0].ImageID, "@")[1]
-				podImage = pod.Status.ContainerStatuses[0].ImageID
+				if strings.Contains(pod.Status.ContainerStatuses[0].ImageID, "@") {
+					podImageID = strings.Split(pod.Status.ContainerStatuses[0].ImageID, "@")[1]
+					podImage = pod.Status.ContainerStatuses[0].ImageID
+				} else {
+					podImageID = pod.Status.ContainerStatuses[0].ImageID
+					podImage = strings.Split(pod.Status.ContainerStatuses[0].Image, ":")[0]
+				}
 			}
 			podImageTag = strings.Split(pod.Status.ContainerStatuses[0].Image, ":")[1]
 			podRepo = strings.SplitN(strings.Split(pod.Status.ContainerStatuses[0].Image, ":")[0], "/", 2)[1]
@@ -109,7 +134,6 @@ func GenerateClusterPodList(k8sctx *string) []Pod {
 
 		}
 	}
-
 	return pods
 }
 
