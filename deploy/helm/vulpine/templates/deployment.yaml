@@ -38,12 +38,12 @@ spec:
           {{- end }}
           command: ["/bin/vulpine"] 
           args:
-            - -ecrimageregistry={{ .Values.server.ecrimageregistry }}
-            - -ecrprofile={{ .Values.server.ecrprofile }}
+            - -ecrImageRegistry={{ .Values.server.ecrimageregistry }}
+            - -ecrProfile={{ .Values.server.ecrprofile }}
             - -interval={{ .Values.server.interval }}
             - -mode={{ .Values.server.mode }}
-            - -repotag={{ .Values.server.repotag }}
-            - -scantarget={{ .Values.server.scantarget }}
+            - -repoTag={{ .Values.server.repotag }}
+            - -scanTarget={{ .Values.server.scantarget }}
             {{- if .Values.server.extraArgs }}
               {{- toYaml .Values.server.extraArgs | nindent 12 }}
             {{- end }}
