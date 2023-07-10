@@ -3,7 +3,6 @@ package ecr
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -17,9 +16,8 @@ type ECRRepo struct {
 }
 
 type RepoImage struct {
-	ImageDigest   string
-	ImageTag      string
-	ImageDeployed bool
+	ImageDigest string
+	ImageTag    string
 }
 
 func GenerateEcrImageList(cfg aws.Config) []ECRRepo {
@@ -28,7 +26,7 @@ func GenerateEcrImageList(cfg aws.Config) []ECRRepo {
 	var ecrRepo []ECRRepo
 
 	repos, err := client.DescribeRepositories(context.TODO(), &ecr.DescribeRepositoriesInput{
-		MaxResults: aws.Int32(350),
+		MaxResults: aws.Int32(500),
 	})
 	if err != nil {
 		fmt.Printf("Unable to list repositories, %v", err.Error())
@@ -61,36 +59,10 @@ func GenerateEcrImageList(cfg aws.Config) []ECRRepo {
 			if image.ImageTag == nil {
 				image.ImageTag = aws.String("untagged")
 			}
-			repoImages = append(repoImages, RepoImage{*image.ImageDigest, *image.ImageTag, false})
+			repoImages = append(repoImages, RepoImage{*image.ImageDigest, *image.ImageTag})
 		}
 
 		ecrRepo = append(ecrRepo, ECRRepo{*repo.RepositoryName, repoArn, repoImages, repoTags})
 	}
 	return ecrRepo
-}
-
-func ImageLookup(ecrRepos []ECRRepo, digestLookup string) (string, string, bool) {
-
-	if digestLookup != "" {
-		digestLookup = strings.Split(digestLookup, "@")[1]
-		fmt.Println("Length of ecrRepos:", len(ecrRepos))
-		for _, repo := range ecrRepos {
-			fmt.Printf("Working on repo: %s\n", repo.RepositoryName)
-			for _, image := range repo.RepoImages {
-				fmt.Printf("Working on repo image %s\n", image.ImageDigest)
-				if digestLookup != "" {
-
-					if image.ImageDigest == digestLookup {
-						return repo.RepositoryName, image.ImageDigest, true
-
-					} else {
-					}
-				}
-
-			}
-		}
-
-	}
-
-	return "", "", false
 }
