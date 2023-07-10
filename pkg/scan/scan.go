@@ -16,11 +16,9 @@ func ScanFindings(scanTarget *string, results []types.Finding, inspectorClient *
 		results = inspector.ListInspectorFindingsEcr(inspectorClient, results, scanType, ecrImageRegistry)
 	} else if *scanTarget == "eks" {
 		pods := eks.GenerateClusterImageList(k8sctx)
-		deployedImages := make(map[string]string)
-		eks.IsImageDeployed(ecrRepos, pods, deployedImages)
-		for repoName, imageTag := range deployedImages {
-			fmt.Println("Obtaining findings for running image: ", repoName, imageTag)
-			results = inspector.ListInspectorFindingsByRepoImage(inspectorClient, results, repoName, imageTag)
+		for _, pod := range pods {
+			fmt.Printf("** Obtaining findings for running pod: Repo: %s, ImageTag: %s\n", pod.Repo, pod.ImageTag)
+			results = inspector.ListInspectorFindingsByRepoImage(inspectorClient, results, pod.Repo, pod.ImageTag)
 		}
 	}
 	return results
