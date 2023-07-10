@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rootameen/vulpine/pkg/ecr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -135,17 +134,4 @@ func GetPods(clientSet *kubernetes.Clientset, pods []Pod) []Pod {
 		}
 	}
 	return pods
-}
-
-func IsImageDeployed(ecrRepos []ecr.ECRRepo, pods []Pod, deployedImages map[string]string) {
-	for i, repo := range ecrRepos {
-		for j, image := range repo.RepoImages {
-			for _, pod := range pods {
-				if pod.Repo == repo.RepositoryName && pod.ImageID == image.ImageDigest {
-					ecrRepos[i].RepoImages[j].ImageDeployed = true
-					deployedImages[repo.RepositoryName] = pod.ImageTag
-				}
-			}
-		}
-	}
 }
