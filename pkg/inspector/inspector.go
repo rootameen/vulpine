@@ -89,7 +89,6 @@ func ListInspectorFindingsEcr(client *inspector2.Client, results []types.Finding
 				panic("Error in Listing findings from Next Token, " + err.Error())
 			}
 			results = append(results, findings.Findings...)
-			fmt.Println(len(results))
 		}
 	}
 
@@ -181,7 +180,6 @@ func ListInspectorFindingsByRepoImage(client *inspector2.Client, results []types
 			panic("Error in Listing findings from Next Token, " + err.Error())
 		}
 		results = append(results, findings.Findings...)
-		fmt.Println(len(results))
 	}
 
 	return results
