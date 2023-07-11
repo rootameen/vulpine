@@ -5,38 +5,38 @@ import (
 )
 
 type Metrics struct {
-	CriticalSeverity      *prometheus.CounterVec
-	HighSeverity          *prometheus.CounterVec
-	MediumSeverity        *prometheus.CounterVec
-	LowSeverity           *prometheus.CounterVec
-	InformationalSeverity *prometheus.CounterVec
+	CriticalSeverity      *prometheus.GaugeVec
+	HighSeverity          *prometheus.GaugeVec
+	MediumSeverity        *prometheus.GaugeVec
+	LowSeverity           *prometheus.GaugeVec
+	InformationalSeverity *prometheus.GaugeVec
 }
 
 func NewMetrics(reg prometheus.Registerer) *Metrics {
 	m := &Metrics{
-		CriticalSeverity: prometheus.NewCounterVec(prometheus.CounterOpts{
+		CriticalSeverity: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "vulpine",
-			Name:      "critical_vulns_total",
+			Name:      "critical_vulns",
 			Help:      "Number of Critical Vulnerabilities",
 		}, []string{"team", "repo", "tag", "packagemanager"}),
-		HighSeverity: prometheus.NewCounterVec(prometheus.CounterOpts{
+		HighSeverity: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "vulpine",
-			Name:      "high_vulns_total",
+			Name:      "high_vulns",
 			Help:      "Number of High Vulnerabilities",
 		}, []string{"team", "repo", "tag", "packagemanager"}),
-		MediumSeverity: prometheus.NewCounterVec(prometheus.CounterOpts{
+		MediumSeverity: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "vulpine",
-			Name:      "medium_vulns_total",
+			Name:      "medium_vulns",
 			Help:      "Number of Medium Vulnerabilities",
 		}, []string{"team", "repo", "tag", "packagemanager"}),
-		LowSeverity: prometheus.NewCounterVec(prometheus.CounterOpts{
+		LowSeverity: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "vulpine",
-			Name:      "low_vulns_total",
+			Name:      "low_vulns",
 			Help:      "Number of Low Vulnerabilities",
 		}, []string{"team", "repo", "tag", "packagemanager"}),
-		InformationalSeverity: prometheus.NewCounterVec(prometheus.CounterOpts{
+		InformationalSeverity: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "vulpine",
-			Name:      "informational_vulns_total",
+			Name:      "informational_vulns",
 			Help:      "Number of Informational Vulnerabilities",
 		}, []string{"team", "repo", "tag", "packagemanager"}),
 	}
