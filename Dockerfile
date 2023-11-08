@@ -11,7 +11,7 @@ ARG VERSION
 
 RUN go build -o bin/vulpine -v -ldflags="-X main.version=$VERSION" 
 
-FROM gcr.io/distroless/base-debian10
+FROM gcr.io/distroless/base-debian12
 
 COPY --from=builder /app/bin /bin/
 
